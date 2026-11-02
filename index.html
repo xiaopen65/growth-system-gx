@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="38">
+<meta name="app-version" content="39">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -3389,7 +3389,7 @@ function populateSuggestionQuestions(){
   var sel=document.getElementById("sugMainQuest");
   if(sel){
     sel.innerHTML="";
-    var quests=(data.mainQuests||[]).slice();
+    var quests=(data.mainQuests||[]).filter(function(q){return !q.done});
     if(!quests.length){sel.innerHTML='<option value="">（暂无主线任务）</option>';}
     else{
       quests.forEach(function(q,i){var opt=document.createElement("option");opt.value=q.id||("q"+i);opt.textContent=(q.category?("["+q.category+"] "):"")+q.title;sel.appendChild(opt);});
