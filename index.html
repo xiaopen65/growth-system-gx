@@ -3994,23 +3994,32 @@ function upload(force){
 }
 function pull(){
   if(!state.token||state.busy)return Promise.resolve({skipped:true});
-  return api("get",{token:state.token}).then(function(res){
-    var remoteAt=Number(res.updatedAt||0);
-    if(remoteAt<=state.base)return {ok:true,unchanged:true};
-    if(!res.payload){state.base=remoteAt;persist();return {ok:true,unchanged:true}}
-    var cloudDigest=payloadDigest(res.payload);
-    if(cloudDigest===localDigest()){
-      state.base=remoteAt;state.last=Date.now();state.dirty=false;state.digest=cloudDigest;persist();render();
+  if(document.visibilityState==="hidden")return Promise.resolve({skipped:true});
+  return api("version",{token:state.token}).then(function(ver){
+    var remoteAt=Number((ver&&ver.updatedAt)||0);
+    if(remoteAt<=state.base){
+      state.last=Date.now();
+      var st=$("syncStatus");if(st)st.textContent="最后同步："+fmt(state.last)+(state.dirty?" · 待同步":"");
       return {ok:true,unchanged:true};
     }
-    if(!state.dirty)return applyCloud(res.payload,remoteAt).then(function(){return {ok:true,applied:true}});
-    if(!state.choice){
-      openChoice("云端和本机都有新修改，要用哪一边？\n选「用云端」会覆盖本机；选「用本机」会上传本机。",function(which){
-        if(which==="cloud")applyCloud(res.payload,remoteAt);
-        else upload(true);
-      });
-    }
-    return {ok:true,conflict:true};
+    return api("get",{token:state.token}).then(function(res){
+      var at=Number(res.updatedAt||0);
+      if(at<=state.base)return {ok:true,unchanged:true};
+      if(!res.payload){state.base=at;persist();return {ok:true,unchanged:true}}
+      var cloudDigest=payloadDigest(res.payload);
+      if(cloudDigest===localDigest()){
+        state.base=at;state.last=Date.now();state.dirty=false;state.digest=cloudDigest;persist();render();
+        return {ok:true,unchanged:true};
+      }
+      if(!state.dirty)return applyCloud(res.payload,at).then(function(){return {ok:true,applied:true}});
+      if(!state.choice){
+        openChoice("云端和本机都有新修改，要用哪一边？\n选「用云端」会覆盖本机；选「用本机」会上传本机。",function(which){
+          if(which==="cloud")applyCloud(res.payload,at);
+          else upload(true);
+        });
+      }
+      return {ok:true,conflict:true};
+    });
   }).catch(function(){return {ok:false}});
 }
 function openChoice(msg,cb){
