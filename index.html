@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="37">
+<meta name="app-version" content="38">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -3838,8 +3838,27 @@ function applyTheme(){
   document.body.setAttribute("data-theme",t);
   document.querySelectorAll(".theme-btn").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-theme")===t)});
 }
+function renderAboutCards(){
+  var meta=document.querySelector('meta[name="app-version"]');
+  var ver=meta?meta.content:"—";
+  ["page-settings","page-settings-daily"].forEach(function(id){
+    var page=document.getElementById(id);if(!page)return;
+    var card=page.querySelector(".about-card");
+    if(!card){card=document.createElement("div");card.className="card about-card";page.appendChild(card)}
+    card.innerHTML='<h3>ℹ️ 关于</h3><div style="font-size:0.85em;color:var(--muted);line-height:1.9"><div>人生主线系统</div><div>版本号：v'+ver+'</div></div><button class="btn btn-sm btn-outline" style="margin-top:10px" onclick="forceAppUpdate()">🔄 检查更新</button><div style="font-size:0.72em;color:var(--muted);margin-top:6px">更新只清理旧页面缓存，不会清除你的记录</div>';
+  });
+}
+function forceAppUpdate(){
+  var done=function(){location.replace(location.pathname+"?_u="+Date.now())};
+  try{
+    var jobs=[];
+    if("serviceWorker" in navigator&&navigator.serviceWorker.getRegistrations)jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}));
+    if(window.caches)jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}));
+    Promise.all(jobs).then(done,done);
+  }catch(e){done()}
+}
 function init(){applyTheme();syncSfxBtn();syncCampfireBtn();syncSfxVolumeUI();loadSfxSamples();loadData();loadDailyData();renderDailyTodos();renderTodayPlan();bindDragSort(document.getElementById("dailyTodoList"));var __gl=document.getElementById("dailyTodoListGoal");if(__gl)bindDragSort(__gl);bindDragSort(document.getElementById("questList"));document.getElementById("dailyDate").value=getLocalDateString();var endInput=document.getElementById("dailyEndTime");if(endInput){endInput.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimes()})}var startInput=document.getElementById("dailyStartTime");if(startInput){startInput.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimes()})}var dmEnd=document.getElementById("dailyModeEndTime");if(dmEnd){dmEnd.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimesDaily()})}var dmStart=document.getElementById("dailyModeStartTime");if(dmStart){dmStart.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimesDaily()})}renderDailyList();renderLevelGrid();updateStats();resetQuestForm();renderQuests();renderRouletteTabs();renderRouletteItems();updateDailyDraftTimes();populateFoolTimeSelect();renderFoolTimeUI();renderDailyChallenge();renderDailyModeList();renderGoals();if(document.getElementById("goalList"))bindDragSort(document.getElementById("goalList"));renderModeButtons();applyMode(true);renderDailyChallenge();if(data.dailyChallenge&&data.dailyChallenge.active&&data.dailyChallenge.date===getLocalDateString())openDailyChallengeModal();if(data.foolTime&&data.foolTime.active)openFoolTimeModal()}
-init();setInterval(updateDailyDraftTimes,1000);setInterval(updateDailyDraftTimesDaily,1000);setInterval(tickDailyChallenge,250);setInterval(tickFoolTime,250);
+init();renderAboutCards();setInterval(updateDailyDraftTimes,1000);setInterval(updateDailyDraftTimesDaily,1000);setInterval(tickDailyChallenge,250);setInterval(tickFoolTime,250);
 
 // ==== 云端账号同步 ====
 var SYNC=(function(){
@@ -4081,7 +4100,7 @@ SYNC.init();
 
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js');
+  navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' });
   navigator.serviceWorker.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'version-update') {
       var b = document.getElementById('update-banner');

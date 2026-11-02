@@ -1,4 +1,4 @@
-const CACHE_NAME = 'growth-gx-v2';
+const CACHE_NAME = 'growth-gx-v3';
 
 // Static assets that rarely change
 const STATIC = ['./', './manifest.json', './icons/icon-144x144.png', './icons/icon-192x192.png', './icons/icon-512x512.png'];
@@ -13,48 +13,37 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Fetch: cache-first for everything. Background update for index.html.
+// Fetch: network-first for HTML, cache-first for static assets.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  const isHtml = e.request.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+
+  if (isHtml) {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' }).then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy));
+        }
+        return res;
+      }).catch(() =>
+        caches.match(e.request, { ignoreSearch: true }).then((cached) => cached || caches.match('./'))
+      )
+    );
+    return;
+  }
+
   e.respondWith(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.match(e.request).then((cached) => {
-        const url = new URL(e.request.url);
-        const isHtml = url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
-
-        // Start network fetch in background
-        const network = fetch(e.request).then((res) => {
-          if (res && res.status === 200) {
-            if (isHtml) {
-              // Clone and check version before updating cache
-              const clone = res.clone();
-              clone.text().then((text) => {
-                const newVer = (text.match(/<meta name="app-version" content="(\\d+)"/) || [])[1];
-                if (newVer) {
-                  caches.match(e.request).then((oldRes) => {
-                    if (oldRes) {
-                      oldRes.text().then((oldText) => {
-                        const oldVer = (oldText.match(/<meta name="app-version" content="(\\d+)"/) || [])[1];
-                        if (newVer !== oldVer) {
-                          cache.put(e.request, res.clone());
-                          self.clients.matchAll().then((clients) =>
-                            clients.forEach((c) => c.postMessage({ type: 'version-update' }))
-                          );
-                        }
-                      });
-                    }
-                  });
-                }
-              });
-            } else {
-              cache.put(e.request, res.clone());
-            }
-          }
-          return res;
-        }).catch(() => {});
-
-        return cached || network;
-      })
-    )
+    caches.match(e.request).then((cached) => {
+      const network = fetch(e.request).then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy));
+        }
+        return res;
+      }).catch(() => cached);
+      return cached || network;
+    })
   );
 });
