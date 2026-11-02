@@ -1,4 +1,4 @@
-const CACHE_NAME = 'growth-gx-v1';
+const CACHE_NAME = 'growth-gx-v2';
 
 // Static assets that rarely change
 const STATIC = ['./', './manifest.json', './icons/icon-144x144.png', './icons/icon-192x192.png', './icons/icon-512x512.png'];

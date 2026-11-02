@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-  <meta name="app-version" content="35">
+<meta name="app-version" content="36">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -3844,12 +3844,12 @@ init();setInterval(updateDailyDraftTimes,1000);setInterval(updateDailyDraftTimes
 // ==== 云端账号同步 ====
 var SYNC=(function(){
 var DEFAULT_URL="https://growth-system-d0gxeo4y4ad058f46-1342558186.ap-shanghai.app.tcloudbase.com/sync";
-var state={token:APP_STORAGE.getItem("growth_sync_token")||"",username:APP_STORAGE.getItem("growth_sync_user")||"",base:Number(APP_STORAGE.getItem("growth_sync_base")||0),last:Number(APP_STORAGE.getItem("growth_sync_last")||0),applying:false,dirty:false,busy:false,timer:null,pullTimer:null,choice:null};
+var state={token:APP_STORAGE.getItem("growth_sync_token")||"",username:APP_STORAGE.getItem("growth_sync_user")||"",base:Number(APP_STORAGE.getItem("growth_sync_base")||0),last:Number(APP_STORAGE.getItem("growth_sync_last")||0),digest:APP_STORAGE.getItem("growth_sync_digest")||"",applying:false,dirty:false,busy:false,timer:null,pullTimer:null,choice:null};
 function $(id){return document.getElementById(id)}
 function apiUrl(){var saved=APP_STORAGE.getItem("growth_sync_url");if(saved&&saved.indexOf(".service.tcloudbase.com/sync")>=0){APP_STORAGE.removeItem("growth_sync_url");saved=null}return saved||DEFAULT_URL}
 function setError(m,target){var ids=target?[target]:["syncError","syncLoginError"];for(var i=0;i<ids.length;i++){var e=$(ids[i]);if(e){e.textContent=m||"";e.style.display=m?"block":"none"}}}
 function fmt(ts){if(!ts)return "尚未同步";var d=new Date(ts);function p(n){return n<10?"0"+n:""+n}return p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())}
-function persist(){APP_STORAGE.setItem("growth_sync_token",state.token||"");APP_STORAGE.setItem("growth_sync_user",state.username||"");APP_STORAGE.setItem("growth_sync_base",String(state.base||0));APP_STORAGE.setItem("growth_sync_last",String(state.last||0))}
+function persist(){APP_STORAGE.setItem("growth_sync_token",state.token||"");APP_STORAGE.setItem("growth_sync_user",state.username||"");APP_STORAGE.setItem("growth_sync_base",String(state.base||0));APP_STORAGE.setItem("growth_sync_last",String(state.last||0));APP_STORAGE.setItem("growth_sync_digest",state.digest||"")}
 function api(action,payload){
   return fetch(apiUrl(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({action:action},payload||{}))}).then(function(r){
     return r.text().then(function(txt){
@@ -3919,7 +3919,7 @@ function applyCloud(payload,updatedAt){
     data.aiConfig=keepAI;data.foolTime=keepFool;data.dailyChallenge=keepChallenge;
     saveData();saveDailyData();
   }finally{state.applying=false}
-  state.base=Number(updatedAt||0);state.last=Date.now();state.dirty=false;persist();refreshUI();render();
+  clearTimeout(state.timer);state.timer=null;state.base=Number(updatedAt||0);state.last=Date.now();state.dirty=false;state.digest=localDigest();persist();refreshUI();render();
   showToast("已同步云端数据");
   return Promise.resolve();
 }
@@ -3930,31 +3930,66 @@ function syncPayload(){
   delete main.dailyChallenge;
   return {main:main,daily:JSON.parse(JSON.stringify(dataDaily))};
 }
+function canonicalJson(v){
+  if(v===null||typeof v!=="object")return JSON.stringify(v);
+  if(Array.isArray(v))return "["+v.map(canonicalJson).join(",")+"]";
+  var keys=Object.keys(v).sort(),parts=[];
+  for(var i=0;i<keys.length;i++){var k=keys[i];if(v[k]!==undefined)parts.push(JSON.stringify(k)+":"+canonicalJson(v[k]))}
+  return "{"+parts.join(",")+"}";
+}
+function hashText(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+function payloadDigest(payload){try{return hashText(canonicalJson(payload))}catch(e){return ""}}
+function localDigest(){return payloadDigest(syncPayload())}
+function scheduleUpload(delay){clearTimeout(state.timer);state.timer=setTimeout(function(){upload(false)},delay||1200)}
 function upload(force){
-  if(!state.token||state.busy)return Promise.resolve();
+  if(!state.token)return Promise.resolve();
+  if(state.busy){scheduleUpload(1500);return Promise.resolve({busy:true})}
+  var payload=syncPayload();
+  var sentDigest=payloadDigest(payload);
+  if(!force&&sentDigest===state.digest){
+    state.dirty=false;persist();render();
+    return Promise.resolve({ok:true,noop:true});
+  }
   state.busy=true;
-  var body={token:state.token,payload:syncPayload(),updatedAt:Date.now(),deviceId:APP_STORAGE.getItem("growth_device_id")||""};
+  var body={token:state.token,payload:payload,updatedAt:Date.now(),deviceId:APP_STORAGE.getItem("growth_device_id")||""};
   if(!force)body.baseUpdatedAt=state.base;
   return api("set",body).then(function(res){
     state.busy=false;
     if(res.conflict){
+      state.dirty=true;persist();render();
       openChoice("云端有更新的数据，要用哪一边？\n新设备选「用云端」；这台设备的数据要上传就选「用本机」。",function(which){
         if(which==="cloud")applyCloud(res.payload,res.updatedAt);
         else upload(true);
       });
       return {conflict:true};
     }
-    state.base=Number(res.updatedAt||0);state.last=Date.now();state.dirty=false;persist();render();setError("");
+    state.base=Number(res.updatedAt||0);state.last=Date.now();state.digest=sentDigest;state.dirty=localDigest()!==sentDigest;persist();render();setError("");
+    if(state.dirty)scheduleUpload(800);
     return {ok:true};
   },function(e){
-    state.busy=false;setError("同步失败："+e.message);throw e;
+    state.busy=false;state.dirty=true;persist();render();setError("同步失败："+e.message);scheduleUpload(6000);throw e;
   });
 }
 function pull(){
-  if(!state.token||state.busy||state.dirty)return Promise.resolve();
+  if(!state.token||state.busy)return Promise.resolve({skipped:true});
   return api("get",{token:state.token}).then(function(res){
-    if(Number(res.updatedAt||0)>state.base)return applyCloud(res.payload,res.updatedAt);
-  }).catch(function(){});
+    var remoteAt=Number(res.updatedAt||0);
+    if(remoteAt<=state.base)return {ok:true,unchanged:true};
+    if(!res.payload){state.base=remoteAt;persist();return {ok:true,unchanged:true}}
+    var cloudDigest=payloadDigest(res.payload);
+    if(cloudDigest===localDigest()){
+      state.base=remoteAt;state.last=Date.now();state.dirty=false;state.digest=cloudDigest;persist();render();
+      return {ok:true,unchanged:true};
+    }
+    if(!state.dirty)return applyCloud(res.payload,remoteAt).then(function(){return {ok:true,applied:true}});
+    if(!state.choice){
+      openChoice("云端和本机都有新修改，要用哪一边？\n选「用云端」会覆盖本机；选「用本机」会上传本机。",function(which){
+        if(which==="cloud")applyCloud(res.payload,remoteAt);
+        else upload(true);
+      });
+    }
+    return {ok:true,conflict:true};
+  }).catch(function(){return {ok:false}});
 }
 function openChoice(msg,cb){
   state.choice=cb;
@@ -3973,6 +4008,10 @@ function afterLogin(){
     var cloudHas=!!(res.payload&&Number(res.updatedAt||0)>0);
     if(!cloudHas)return upload(true).then(function(){render()});
     if(!localHasData())return applyCloud(res.payload,res.updatedAt);
+    if(payloadDigest(res.payload)===localDigest()){
+      state.base=Number(res.updatedAt||0);state.last=Date.now();state.dirty=false;state.digest=localDigest();persist();render();
+      return;
+    }
     openChoice("云端已有数据，要用哪一边？\n新设备选「用云端」；这台设备的数据要上传就选「用本机」。",function(which){
       if(which==="cloud")applyCloud(res.payload,res.updatedAt);else upload(true);
     });
@@ -3986,32 +4025,50 @@ function doAuth(kind){
   api(kind,{username:username,password:password}).then(function(res){
     state.busy=false;
     if(!res.token){setError(res.error||"操作失败","syncLoginError");return}
-    state.token=res.token;state.username=res.username;state.base=0;state.last=0;state.dirty=false;persist();
+    state.token=res.token;state.username=res.username;state.base=0;state.last=0;state.digest="";state.dirty=false;persist();
     if(p)p.value="";
     closeLogin();
     render();
-    if(!state.pullTimer)state.pullTimer=setInterval(pull,120000);
+    if(!state.pullTimer)state.pullTimer=setInterval(pull,15000);
     return afterLogin();
   }).catch(function(e){state.busy=false;setError((kind==="register"?"注册失败：":"登录失败：")+e.message,"syncLoginError")});
 }
 function markDirty(){
   if(state.applying||!state.token)return;
+  var d=localDigest();
+  if(d===state.digest){if(state.dirty){state.dirty=false;persist();render()}return}
   state.dirty=true;render();
-  clearTimeout(state.timer);
-  state.timer=setTimeout(function(){upload(false)},2500);
+  scheduleUpload(1200);
 }
 function logout(){
   var t=state.token;
   if(t)api("logout",{token:t}).catch(function(){});
-  state.token="";state.username="";state.base=0;state.last=0;state.dirty=false;persist();render();setError("");
+  state.token="";state.username="";state.base=0;state.last=0;state.digest="";state.dirty=false;persist();render();setError("");
+}
+function now(){
+  if(!state.token){showToast("请先登录");return Promise.resolve()}
+  var start=state.dirty?upload(false):pull();
+  return start.then(function(r){
+    if(state.dirty&&!state.choice)return upload(false);
+    if(r&&r.applied)showToast("已拉取云端数据");
+    else if(r&&r.conflict)return;
+    else showToast("已是最新");
+  }).catch(function(){});
 }
 function init(){
   if(!APP_STORAGE.getItem("growth_device_id"))APP_STORAGE.setItem("growth_device_id",Math.random().toString(36).slice(2)+Date.now().toString(36));
   render();
-  if(state.token){pull();if(!state.pullTimer)state.pullTimer=setInterval(pull,120000)}
+  if(state.token){
+    if(state.digest&&localDigest()!==state.digest)state.dirty=true;
+    pull().then(function(){if(state.dirty&&!state.choice)scheduleUpload(600)});
+    if(!state.pullTimer)state.pullTimer=setInterval(pull,15000);
+  }
   document.addEventListener("visibilitychange",function(){if(!document.hidden)pull()});
+  window.addEventListener("focus",function(){pull()});
+  window.addEventListener("online",function(){pull()});
+  window.addEventListener("pageshow",function(){pull()});
 }
-return{init:init,place:place,openLogin:openLogin,closeLogin:closeLogin,login:function(){doAuth("login")},logout:logout,now:function(){upload(true).then(function(r){if(r&&r.ok)showToast("已同步")}).catch(function(){})},markDirty:markDirty,choose:choose,setUrl:function(){var u=prompt("同步服务地址",apiUrl());if(u&&u.trim()){APP_STORAGE.setItem("growth_sync_url",u.trim());setError("")}}};
+return{init:init,place:place,openLogin:openLogin,closeLogin:closeLogin,login:function(){doAuth("login")},logout:logout,now:now,markDirty:markDirty,choose:choose,setUrl:function(){var u=prompt("同步服务地址",apiUrl());if(u&&u.trim()){APP_STORAGE.setItem("growth_sync_url",u.trim());setError("")}}};
 })();
 SYNC.init();
 
