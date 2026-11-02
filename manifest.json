@@ -1,0 +1,31 @@
+{
+  "name": "个人成长系统 · 云端版",
+  "short_name": "成长系统·云",
+  "description": "个人成长追踪与游戏化系统 - 积累研发点，完成任务升级",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0f0f1a",
+  "background_color": "#0f0f1a",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
