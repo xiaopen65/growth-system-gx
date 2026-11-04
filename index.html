@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="40">
+<meta name="app-version" content="41">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -4060,8 +4060,7 @@ function doAuth(kind){
     if(p)p.value="";
     closeLogin();
     render();
-    if(!state.pullTimer)state.pullTimer=setInterval(pull,15000);
-    return afterLogin();
+    return afterLogin().then(function(){ markActive(); schedulePoll(); });
   }).catch(function(e){state.busy=false;setError((kind==="register"?"注册失败：":"登录失败：")+e.message,"syncLoginError")});
 }
 function markDirty(){
@@ -4086,18 +4085,45 @@ function now(){
     else showToast("已是最新");
   }).catch(function(){});
 }
+var POLL_ACTIVE_MS=10000,POLL_IDLE_MS=60000,ACTIVE_WINDOW_MS=120000;
+function markActive(){state.lastActive=Date.now();}
+function pollDelay(){
+  if(document.visibilityState==="hidden")return 0;
+  var idle=Date.now()-(state.lastActive||0);
+  return idle<ACTIVE_WINDOW_MS?POLL_ACTIVE_MS:POLL_IDLE_MS;
+}
+function schedulePoll(delay){
+  if(state.pullTimer){clearTimeout(state.pullTimer);state.pullTimer=null;}
+  var ms=(typeof delay==="number"&&delay>0)?delay:pollDelay();
+  if(!ms)return;
+  state.pullTimer=setTimeout(function(){
+    state.pullTimer=null;
+    pull().then(function(){if(state.token)schedulePoll();},function(){if(state.token)schedulePoll();});
+  },ms);
+}
+function pullNow(){
+  markActive();
+  return pull().then(function(r){schedulePoll();return r;},function(e){schedulePoll();throw e;});
+}
 function init(){
   if(!APP_STORAGE.getItem("growth_device_id"))APP_STORAGE.setItem("growth_device_id",Math.random().toString(36).slice(2)+Date.now().toString(36));
   render();
   if(state.token){
     if(state.digest&&localDigest()!==state.digest)state.dirty=true;
+    markActive();
     pull().then(function(){if(state.dirty&&!state.choice)scheduleUpload(600)});
-    if(!state.pullTimer)state.pullTimer=setInterval(pull,15000);
+    schedulePoll();
   }
-  document.addEventListener("visibilitychange",function(){if(!document.hidden)pull()});
-  window.addEventListener("focus",function(){pull()});
-  window.addEventListener("online",function(){pull()});
-  window.addEventListener("pageshow",function(){pull()});
+  document.addEventListener("visibilitychange",function(){
+    if(document.hidden){ if(state.pullTimer){clearTimeout(state.pullTimer);state.pullTimer=null;} }
+    else { pullNow(); }
+  });
+  window.addEventListener("focus",function(){pullNow()});
+  window.addEventListener("online",function(){pullNow()});
+  window.addEventListener("pageshow",function(){pullNow()});
+  ["click","keydown","input","touchstart"].forEach(function(ev){
+    document.addEventListener(ev,markActive,{passive:true,capture:true});
+  });
 }
 return{init:init,place:place,openLogin:openLogin,closeLogin:closeLogin,login:function(){doAuth("login")},logout:logout,now:now,markDirty:markDirty,choose:choose,setUrl:function(){var u=prompt("同步服务地址",apiUrl());if(u&&u.trim()){APP_STORAGE.setItem("growth_sync_url",u.trim());setError("")}}};
 })();
