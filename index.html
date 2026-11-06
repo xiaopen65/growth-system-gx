@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="41">
+<meta name="app-version" content="42">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -2811,7 +2811,7 @@ function renderPlanItemPicker(idx){
   quests.forEach(function(q){
     var s=Math.min(4,Math.max(1,q.points||0));
     var active=(cur&&cur.type==="quest"&&cur.id===q.id);
-    html+='<div style="display:flex;align-items:center;gap:6px;padding:4px;border-radius:6px;cursor:pointer;background:'+(active?'#fff7ed':'transparent')+'" data-type="quest" data-id="'+escapeHtml(q.id)+'" onclick="replacePlanItem('+idx+', this)"><span style="flex:1">'+escapeHtml(q.title)+'</span><span style="color:#f59e0b;font-size:0.8em">主线 🎮×'+s+'</span></div>';
+    html+='<div style="display:flex;align-items:center;gap:6px;padding:4px;border-radius:6px;cursor:pointer;background:'+(active?'#fff7ed':'transparent')+'" data-type="quest" data-id="'+escapeHtml(q.id)+'" onclick="replacePlanItem('+idx+', this)"><span style="flex:1">'+escapeHtml(q.title)+'</span><span style="color:#f59e0b;font-size:0.8em">主线</span></div>';
   });
   todos.forEach(function(t){
     var active=(cur&&cur.type==="todo"&&cur.id===t.id);
@@ -2875,7 +2875,6 @@ function renderTodayPlan(){
     html+='<button class="btn btn-sm btn-outline" style="width:26px;height:26px;min-width:26px;padding:0;border-radius:50%;font-size:0.85em;line-height:1;flex-shrink:0;color:#4b5563;border-color:#cbd5e1" title="完成，不计成长点" onclick="removePlanItem('+i+')">✓</button>';
     html+='<span style="flex:1;line-height:1.4;cursor:pointer" onclick="togglePlanItemPicker('+i+')" title="点击选择替换">'+escapeHtml(it.title)+' <span style="font-size:0.7em;color:#f59e0b">▾</span></span>';
     html+='<span style="color:'+tagColor+';white-space:nowrap;font-size:0.8em">'+tag+'</span>';
-    html+='<span style="color:#6b7280;white-space:nowrap;font-size:0.8em">🎮×'+it.sessions+'</span>';
     html+='<button class="btn btn-sm" style="padding:5px 10px" onclick="startPlanItem('+i+')">▶ 开跑</button>';
     html+='</div>';
     html+='<div id="planPicker-'+i+'" style="display:none;margin:0 0 8px 34px;border:1px dashed #f0a500;border-radius:8px;padding:8px;max-height:200px;overflow:auto"></div>';
@@ -3451,7 +3450,7 @@ function buildSuggestionUserText(){
   if(data.todayPlan&&data.todayPlan.date===tpToday&&data.todayPlan.items&&data.todayPlan.items.length){
     lines.push("");
     lines.push("【今日行动推荐】（一键生成的初步排序，供你分配剩余时间参考）");
-    data.todayPlan.items.forEach(function(it,idx){lines.push("- "+(idx+1)+". "+it.title+"（"+(it.type==="quest"?"主线":"待办")+"，🎮×"+it.sessions+"）");});
+    data.todayPlan.items.forEach(function(it,idx){lines.push("- "+(idx+1)+". "+it.title+"（"+(it.type==="quest"?"主线":"待办")+"，建议"+it.sessions+" 轮）");});
     if(data.todayPlan.extraCount>0){lines.push("（另有 "+data.todayPlan.extraCount+" 项未列出任务可补充安排在碎片时间）");}
   }
   return lines.join("\n");
