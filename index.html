@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="42">
+<meta name="app-version" content="43">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -328,7 +328,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
   </div>
 </div>
 <div class="page" id="page-main">
-<div class="card" style="border:1px solid #f59e0b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;color:#f59e0b">🎯 今日行动</h3><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b;padding:4px 10px;font-size:1.05em;line-height:1.2" title="行动建议" aria-label="行动建议" onclick="openSuggestionModal()">💡</button><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b" onclick="generateTodayPlan()">✨ 一键生成</button></div></div><div id="todayPlanList" style="font-size:0.85em"></div><div id="dailyChallengeCard" style="margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-weight:bold;color:#f59e0b">⚔️ 今日限时任务</span><button class="btn btn-sm" id="dailyChallengeStartBtn">▶ 开跑 30 分钟</button></div></div></div>
+<div class="card" style="border:1px solid #f59e0b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;color:#f59e0b">🎯 今日行动</h3><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b;padding:4px 10px;font-size:1.05em;line-height:1.2" title="行动建议" aria-label="行动建议" onclick="openSuggestionModal()">💡</button><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b" onclick="generateTodayPlan()">✨ 一键生成</button></div></div><div id="todayPlanList" style="font-size:0.85em"></div><div id="dailyChallengeCard" style="margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span id="dailyChallengePickTitle" style="font-weight:bold;color:#f59e0b;cursor:pointer" onclick="toggleChallengePicker()">⚔️ 今日限时任务 ▾</span><button class="btn btn-sm" id="dailyChallengeStartBtn">▶ 开跑 30 分钟</button></div><div id="dailyChallengePickList" style="display:none;margin-top:8px;border:1px dashed #f0a500;border-radius:8px;padding:6px;max-height:200px;overflow:auto;font-size:0.85em"></div></div></div>
 <div class="card">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
 <h3 style="margin:0">📝 今日备忘录</h3>
@@ -2983,8 +2983,48 @@ function pickChallengeTask(){
   if(quests.length)return {title:quests[0].title};
   return null;
 }
+function challengePool(){
+  var today=getLocalDateString();
+  var out=[],seen={};
+  var p=(data.todayPlan&&data.todayPlan.date===today)?data.todayPlan:null;
+  if(p&&p.items)p.items.forEach(function(it){ if(it&&it.title&&!seen[it.title]){seen[it.title]=1;out.push({title:it.title,type:it.type==="quest"?"主线":"待办"});} });
+  (data.mainQuests||[]).forEach(function(q){ if(!q||q.done||!q.title||seen[q.title])return; seen[q.title]=1; out.push({title:q.title,type:"主线"}); });
+  (data.dailyTodos||[]).forEach(function(t){ if(!t||t.done||!t.title||seen[t.title])return; seen[t.title]=1; out.push({title:t.title,type:"待办"}); });
+  return out;
+}
+function challengePickedTitle(){
+  var today=getLocalDateString();
+  var p=data.challengePick;
+  if(p&&p.date===today&&p.title)return p.title;
+  var t=pickChallengeTask();
+  return t?t.title:"";
+}
+function toggleChallengePicker(){
+  var box=document.getElementById("dailyChallengePickList");
+  if(!box)return;
+  if(box.style.display!=="none"){box.style.display="none";return;}
+  var pool=challengePool();
+  if(!pool.length){box.innerHTML='<div style="color:#6b7280;padding:6px">还没有可选的任务</div>';box.style.display="block";return;}
+  var cur=challengePickedTitle();
+  box.innerHTML=pool.map(function(it){
+    var act=it.title===cur;
+    return '<div data-title="'+escapeHtml(it.title)+'" onclick="chooseChallengeTask(this)" style="display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;background:'+(act?'#fff7ed':'transparent')+'"><span>'+escapeHtml(it.title)+'</span><span style="color:'+(it.type==="主线"?"#f59e0b":"#6b7280")+';font-size:0.85em">'+it.type+'</span></div>';
+  }).join("");
+  box.style.display="block";
+}
+function chooseChallengeTask(el){
+  var title=el&&el.dataset?el.dataset.title:"";
+  if(!title)return;
+  data.challengePick={date:getLocalDateString(),title:title};
+  saveData();
+  var box=document.getElementById("dailyChallengePickList");
+  if(box)box.style.display="none";
+  renderDailyChallenge();
+  showToast("已选：" + title);
+}
 function startDailyChallenge(){
-  var task=pickChallengeTask();
+  var picked=challengePickedTitle();
+  var task=picked?{title:picked}:pickChallengeTask();
   if(!task){showToast("今天没有可挑战的任务，先去主线添加吧");return;}
   playSfx("tap");
   var dur=30*60*1000;
@@ -3002,6 +3042,13 @@ function renderDailyChallenge(){
   card.style.display="";
   var btn=document.getElementById("dailyChallengeStartBtn");
   var hint=document.getElementById("dailyChallengeHint");
+  var pickBox=document.getElementById("dailyChallengePickList");
+  var titleEl=document.getElementById("dailyChallengePickTitle");
+  if(pickBox)pickBox.style.display="none";
+  if(titleEl){
+    var curTitle=(dc&&dc.active&&dc.date===today)?dc.questTitle:challengePickedTitle();
+    titleEl.textContent="⚔️ 今日限时任务"+(curTitle?(" · "+curTitle):"")+" ▾";
+  }
   if(dc&&dc.active&&dc.date===today){
     if(btn){btn.textContent="⏳ 计时中 · 点击查看";btn.onclick=function(){openDailyChallengeModal()};}
     if(hint)hint.textContent="挑战进行中，点击按钮回到计时窗口";
