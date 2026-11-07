@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="43">
+<meta name="app-version" content="44">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -328,7 +328,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
   </div>
 </div>
 <div class="page" id="page-main">
-<div class="card" style="border:1px solid #f59e0b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;color:#f59e0b">🎯 今日行动</h3><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b;padding:4px 10px;font-size:1.05em;line-height:1.2" title="行动建议" aria-label="行动建议" onclick="openSuggestionModal()">💡</button><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b" onclick="generateTodayPlan()">✨ 一键生成</button></div></div><div id="todayPlanList" style="font-size:0.85em"></div><div id="dailyChallengeCard" style="margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span id="dailyChallengePickTitle" style="font-weight:bold;color:#f59e0b;cursor:pointer" onclick="toggleChallengePicker()">⚔️ 今日限时任务 ▾</span><button class="btn btn-sm" id="dailyChallengeStartBtn">▶ 开跑 30 分钟</button></div><div id="dailyChallengePickList" style="display:none;margin-top:8px;border:1px dashed #f0a500;border-radius:8px;padding:6px;max-height:200px;overflow:auto;font-size:0.85em"></div></div></div>
+<div class="card" style="border:1px solid #f59e0b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;color:#f59e0b">🎯 今日行动</h3><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b;padding:4px 10px;font-size:1.05em;line-height:1.2" title="行动建议" aria-label="行动建议" onclick="openSuggestionModal()">💡</button><button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#f59e0b" onclick="generateTodayPlan()">✨ 一键生成</button></div></div><div id="todayPlanList" style="font-size:0.85em"></div><div id="dailyChallengeCard" style="margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-weight:bold;color:#f59e0b;white-space:nowrap">⚔️ 今日限时任务</span><button class="btn btn-sm" id="dailyChallengeStartBtn" style="flex-shrink:0;white-space:nowrap">▶ 开跑 30 分钟</button></div><div id="dailyChallengePickTitle" onclick="toggleChallengePicker()" style="margin-top:6px;font-size:0.9em;color:#9ca3af;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div id="dailyChallengePickList" style="display:none;margin-top:8px;border:1px dashed #f0a500;border-radius:8px;padding:6px;max-height:200px;overflow:auto;font-size:0.85em"></div></div></div>
 <div class="card">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
 <h3 style="margin:0">📝 今日备忘录</h3>
@@ -3047,7 +3047,8 @@ function renderDailyChallenge(){
   if(pickBox)pickBox.style.display="none";
   if(titleEl){
     var curTitle=(dc&&dc.active&&dc.date===today)?dc.questTitle:challengePickedTitle();
-    titleEl.textContent="⚔️ 今日限时任务"+(curTitle?(" · "+curTitle):"")+" ▾";
+    titleEl.textContent=curTitle?(curTitle+" ▾"):"选择任务 ▾";
+    titleEl.style.color=curTitle?"#374151":"#9ca3af";
   }
   if(dc&&dc.active&&dc.date===today){
     if(btn){btn.textContent="⏳ 计时中 · 点击查看";btn.onclick=function(){openDailyChallengeModal()};}
