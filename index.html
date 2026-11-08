@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="44">
+<meta name="app-version" content="45">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -264,7 +264,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 
 </div></div>
 
-<div class="page active" id="page-daily" style="padding-bottom:110px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="margin:0">📋 今日时间线</h3><div style="display:flex;align-items:center;gap:6px"><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openGoodThingModal()" title="今日好事记录">🍅</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openTimeline()">📋 查看记录</button></div></div><div style="margin-bottom:10px"><input type="date" id="dailyDate" onchange="var e=document.getElementById('dailyEndTime');if(e)e.dataset.manual='0';updateDailyDraftTimes();renderTodayTimeline()"></div><div id="todayTimeline"></div></div>
+<div class="page active" id="page-daily" style="padding-bottom:110px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="margin:0">📋 今日时间线</h3><div style="display:flex;align-items:center;gap:6px"><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openIdeaModal()" title="今日灵感">💡</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openGoodThingModal()" title="今日好事记录">🍅</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openTimeline()">📋 记录</button></div></div><div style="margin-bottom:10px"><input type="date" id="dailyDate" onchange="var e=document.getElementById('dailyEndTime');if(e)e.dataset.manual='0';updateDailyDraftTimes();renderTodayTimeline()"></div><div id="todayTimeline"></div></div>
 <button class="btn btn-record-sticky" onclick="openRecordModal()">🕒 记录</button>
 </div>
 <div class="page" id="page-daily-mode" style="padding-bottom:110px">
@@ -408,6 +408,19 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
       <button class="btn" style="width:100%;margin-top:12px" onclick="saveBatchGoodThings()">✅ 全部添加</button>
       <button class="btn btn-sm btn-outline" style="width:100%;margin-top:8px" onclick="exitGoodBatchMode()">↩ 返回单个记录</button>
     </div>
+  </div>
+</div>
+<div id="ideaOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:245;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
+  <div style="background:var(--card);color:var(--text);border-radius:16px;padding:16px;max-width:420px;width:100%;margin-top:6vh;max-height:86vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="margin:0;color:var(--muted)">💡 今日灵感</h3>
+      <button class="btn btn-sm btn-outline" onclick="closeIdeaModal()">✕ 关闭</button>
+    </div>
+    <div style="font-size:0.85em;color:var(--muted)">随手记下一个念头：</div>
+    <textarea id="newIdeaInput" rows="5" placeholder="想到什么就写什么，可以写多行…" style="margin-top:6px;width:100%;font-size:1em;padding:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;color:var(--text);line-height:1.6;resize:vertical"></textarea>
+    <button class="btn" style="width:100%;margin-top:12px" id="ideaSaveBtn" onclick="saveIdea()">💾 保存</button>
+    <div style="margin-top:16px;font-size:0.85em;color:var(--muted)">今天已经记的：</div>
+    <div id="ideaTodayList" style="margin-top:8px"></div>
   </div>
 </div>
 <div id="entryEditOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:260;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
@@ -946,6 +959,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 var DEFAULT_DATA = {
   dailyLog: [],
   goodThings: {},
+  ideas: {},
   mainQuests: [
     { id: "q1", category: "冒险课/关系课营销套", title: "关系课录掉10（2.7）", points: 20, done: false },
     { id: "q2", category: "冒险课/关系课营销套", title: "冒险课研发更新日志6（2.10）", points: 10, done: false },
@@ -1928,9 +1942,11 @@ function buildTimelineExport(from,to){
 function buildTimelineExportEntries(entries,from,to){
   entries=(entries||[]).filter(function(d){return d.date>=from&&d.date<=to}).sort(function(a,b){return a.date>b.date?1:a.date<b.date?-1:0});
   var goodMap=data.goodThings||{};
+  var ideaMap=data.ideas||{};
   var dateSet={};
   entries.forEach(function(e){dateSet[e.date]=1});
   Object.keys(goodMap).forEach(function(d){if(d>=from&&d<=to&&goodMap[d]&&goodMap[d].length)dateSet[d]=1});
+  Object.keys(ideaMap).forEach(function(d){if(d>=from&&d<=to&&ideaMap[d]&&ideaMap[d].length)dateSet[d]=1});
   var dates=Object.keys(dateSet).sort();
   if(!dates.length){return ""}
   var text="时间线导出报告\n";
@@ -1951,6 +1967,12 @@ function buildTimelineExportEntries(entries,from,to){
     if(arr.length){
       text+="[今日好事]\n";
       arr.forEach(function(t,i){text+=(i+1)+". "+t.replace(/\n/g,"\n  ")+"\n";});
+      text+="\n";
+    }
+    var iarr=ideaMap[date]||[];
+    if(iarr.length){
+      text+="[今日灵感]\n";
+      iarr.forEach(function(t,i){text+=(i+1)+". "+t.replace(/\n/g,"\n  ")+"\n";});
       text+="\n";
     }
   });
@@ -2152,7 +2174,8 @@ function exportAllDataFile(){
     timeline:{
       main:((data.dailyLog)||[]),
       daily:((dataDaily&&dataDaily.dailyLog)||[]),
-      goodThings:(data.goodThings||{})
+      goodThings:(data.goodThings||{}),
+      ideas:(data.ideas||{})
     },
     mainline:{
       mainQuests:(data.mainQuests||[]),
@@ -2204,6 +2227,7 @@ function applyFullBackup(j){
     if(Array.isArray(j.timeline.main))data.dailyLog=j.timeline.main;
     if(Array.isArray(j.timeline.daily)){if(!dataDaily)dataDaily={dailyLog:[],futureGoals:[]};dataDaily.dailyLog=j.timeline.daily}
     if(j.timeline.goodThings&&typeof j.timeline.goodThings==="object")data.goodThings=j.timeline.goodThings;
+    if(j.timeline.ideas&&typeof j.timeline.ideas==="object")data.ideas=j.timeline.ideas;
     normalizeDailyLog();recalcMainMinutesTotal();recalcDailyMinutesTotal();
   }
   if(j.mainline&&typeof j.mainline==="object"){
@@ -2580,6 +2604,73 @@ function deleteGoodThing(date,idx){
   data.goodThings[date].splice(idx,1);
   if(!data.goodThings[date].length)delete data.goodThings[date];
   saveData();refreshAfterEntryChange();showToast("已删除");
+}
+
+/* ---------- 今日灵感 ---------- */
+var ideaDate = "";
+var ideaEditIdx = -1;
+function openIdeaModal(date, idx){
+  ideaDate = date || getLocalDateString();
+  ideaEditIdx = (typeof idx === "number") ? idx : -1;
+  var inp = document.getElementById("newIdeaInput");
+  var arr = (data.ideas && data.ideas[ideaDate]) || [];
+  if(inp) inp.value = ideaEditIdx >= 0 ? (arr[ideaEditIdx] || "") : "";
+  var btn = document.getElementById("ideaSaveBtn");
+  if(btn) btn.textContent = ideaEditIdx >= 0 ? "💾 保存修改" : "💾 保存";
+  renderIdeaTodayList();
+  var ov = document.getElementById("ideaOverlay");
+  if(ov){ ov.style.display = "flex"; ov.scrollTop = 0; }
+  if(inp) setTimeout(function(){ try{ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }catch(e){} }, 30);
+}
+function closeIdeaModal(){
+  var ov = document.getElementById("ideaOverlay");
+  if(ov) ov.style.display = "none";
+  ideaEditIdx = -1;
+}
+function renderIdeaTodayList(){
+  var box = document.getElementById("ideaTodayList");
+  if(!box) return;
+  var arr = (data.ideas && data.ideas[ideaDate]) || [];
+  if(!arr.length){ box.innerHTML = '<div style="color:var(--muted);font-size:0.85em">还没有记录</div>'; return; }
+  box.innerHTML = arr.map(function(t, i){
+    return '<div onclick="openIdeaModal(\'' + escapeHtml(ideaDate) + '\', ' + i + ')" style="background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:0.9em;line-height:1.6;cursor:pointer;white-space:pre-wrap;word-break:break-word">' + escapeHtml(t) + '</div>';
+  }).join("");
+}
+function saveIdea(){
+  var inp = document.getElementById("newIdeaInput");
+  var text = (inp && inp.value || "").trim();
+  if(!text){ showToast("先写点什么吧"); return; }
+  if(!data.ideas) data.ideas = {};
+  if(!data.ideas[ideaDate]) data.ideas[ideaDate] = [];
+  var wasEdit = ideaEditIdx;
+  if(ideaEditIdx >= 0 && data.ideas[ideaDate][ideaEditIdx] !== undefined) data.ideas[ideaDate][ideaEditIdx] = text;
+  else data.ideas[ideaDate].push(text);
+  ideaEditIdx = -1;
+  if(inp) inp.value = "";
+  var btn = document.getElementById("ideaSaveBtn");
+  if(btn) btn.textContent = "💾 保存";
+  saveData();
+  renderIdeaTodayList();
+  refreshAfterEntryChange();
+  playSfx("record");
+  showToast(wasEdit >= 0 ? "💡 已更新" : "💡 已记下");
+}
+function editIdeaAt(date, idx){ openIdeaModal(date, idx); }
+function deleteIdea(date, idx){
+  if(!confirm("确定删除这条灵感？")) return;
+  if(!data.ideas || !data.ideas[date]) return;
+  data.ideas[date].splice(idx, 1);
+  if(!data.ideas[date].length) delete data.ideas[date];
+  saveData(); refreshAfterEntryChange(); showToast("已删除");
+}
+function renderIdeasBlock(date){
+  var arr = (data.ideas && data.ideas[date]) || [];
+  if(!arr.length) return "";
+  var html = "";
+  arr.forEach(function(t, i){
+    html += '<div class="timeline-row"><div class="timeline-head"><span class="timeline-range">💡</span><span class="timeline-kind" style="background:#fef9c3;color:#92400e">今日灵感</span><span style="flex:1"></span><button class="btn btn-sm btn-outline" style="color:#0284c7" onclick="editIdeaAt(\'' + escapeHtml(date) + '\',' + i + ')">✏</button><button class="btn btn-sm btn-outline" onclick="deleteIdea(\'' + escapeHtml(date) + '\',' + i + ')">🗑</button></div><div class="timeline-note" style="white-space:pre-wrap">' + escapeHtml(t) + '</div></div>';
+  });
+  return html;
 }
 var entryEditCtx=null;
 var entryEditKind="daily";
@@ -3166,7 +3257,9 @@ function renderDailyModeTimelineAll(){
   var merged=getAllTimelineEntries();
   var goodMap=data.goodThings||{};
   var hasGood=Object.keys(goodMap).some(function(d){return goodMap[d]&&goodMap[d].length});
-  if(!merged.length&&!hasGood){c.innerHTML='<p style="color:#666;text-align:center;padding:20px">还没有记录，开始添加吧 🚀</p>';return}
+  var ideaAll=data.ideas||{};
+  var hasIdea=Object.keys(ideaAll).some(function(d){return ideaAll[d]&&ideaAll[d].length});
+  if(!merged.length&&!hasGood&&!hasIdea){c.innerHTML='<p style="color:#666;text-align:center;padding:20px">还没有记录，开始添加吧 🚀</p>';return}
   var groups={};
   merged.forEach(function(d){
     var key=d.date||"未知日期";
@@ -3191,6 +3284,7 @@ function renderDailyModeTimelineAll(){
       return row;
     }).join("");
     html+=renderGoodThingsBlock(date);
+    html+=renderIdeasBlock(date);
     return html;
   }).join("");
 }
@@ -3970,7 +4064,7 @@ function closeLogin(){
 }
 function localHasData(){
   try{
-    return ((data.dailyLog||[]).length>0)||((dataDaily.dailyLog||[]).length>0)||((data.dailyTodos||[]).length>0)||((data.goodThings&&Object.keys(data.goodThings).length)||0)>0||(data.mainMinutesTotal||0)>0||(data.dailyMinutesTotal||0)>0;
+    return ((data.dailyLog||[]).length>0)||((dataDaily.dailyLog||[]).length>0)||((data.dailyTodos||[]).length>0)||((data.goodThings&&Object.keys(data.goodThings).length)||0)>0||((data.ideas&&Object.keys(data.ideas).length)||0)>0||(data.mainMinutesTotal||0)>0||(data.dailyMinutesTotal||0)>0;
   }catch(e){return false}
 }
 function refreshUI(){
