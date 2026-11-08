@@ -195,7 +195,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="45">
+<meta name="app-version" content="46">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -264,7 +264,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 
 </div></div>
 
-<div class="page active" id="page-daily" style="padding-bottom:110px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="margin:0">📋 今日时间线</h3><div style="display:flex;align-items:center;gap:6px"><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openIdeaModal()" title="今日灵感">💡</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openGoodThingModal()" title="今日好事记录">🍅</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openTimeline()">📋 记录</button></div></div><div style="margin-bottom:10px"><input type="date" id="dailyDate" onchange="var e=document.getElementById('dailyEndTime');if(e)e.dataset.manual='0';updateDailyDraftTimes();renderTodayTimeline()"></div><div id="todayTimeline"></div></div>
+<div class="page active" id="page-daily" style="padding-bottom:110px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="margin:0">📋 今日时间线</h3><div style="display:flex;align-items:center;gap:6px"><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openIdeaModal()" title="今日梳理">💡</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openGoodThingModal()" title="今日好事记录">🍅</button><button class="btn btn-sm" style="background:#fff;color:#000;border:1px solid #f59e0b" onclick="openTimeline()">📋 记录</button></div></div><div style="margin-bottom:10px"><input type="date" id="dailyDate" onchange="var e=document.getElementById('dailyEndTime');if(e)e.dataset.manual='0';updateDailyDraftTimes();renderTodayTimeline()"></div><div id="todayTimeline"></div></div>
 <button class="btn btn-record-sticky" onclick="openRecordModal()">🕒 记录</button>
 </div>
 <div class="page" id="page-daily-mode" style="padding-bottom:110px">
@@ -413,7 +413,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 <div id="ideaOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:245;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
   <div style="background:var(--card);color:var(--text);border-radius:16px;padding:16px;max-width:420px;width:100%;margin-top:6vh;max-height:86vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <h3 style="margin:0;color:var(--muted)">💡 今日灵感</h3>
+      <h3 style="margin:0;color:var(--muted)">💡 今日梳理</h3>
       <button class="btn btn-sm btn-outline" onclick="closeIdeaModal()">✕ 关闭</button>
     </div>
     <div style="font-size:0.85em;color:var(--muted)">随手记下一个念头：</div>
@@ -1971,7 +1971,7 @@ function buildTimelineExportEntries(entries,from,to){
     }
     var iarr=ideaMap[date]||[];
     if(iarr.length){
-      text+="[今日灵感]\n";
+      text+="[今日梳理]\n";
       iarr.forEach(function(t,i){text+=(i+1)+". "+t.replace(/\n/g,"\n  ")+"\n";});
       text+="\n";
     }
@@ -2606,7 +2606,7 @@ function deleteGoodThing(date,idx){
   saveData();refreshAfterEntryChange();showToast("已删除");
 }
 
-/* ---------- 今日灵感 ---------- */
+/* ---------- 今日梳理 ---------- */
 var ideaDate = "";
 var ideaEditIdx = -1;
 function openIdeaModal(date, idx){
@@ -2668,7 +2668,7 @@ function renderIdeasBlock(date){
   if(!arr.length) return "";
   var html = "";
   arr.forEach(function(t, i){
-    html += '<div class="timeline-row"><div class="timeline-head"><span class="timeline-range">💡</span><span class="timeline-kind" style="background:#fef9c3;color:#92400e">今日灵感</span><span style="flex:1"></span><button class="btn btn-sm btn-outline" style="color:#0284c7" onclick="editIdeaAt(\'' + escapeHtml(date) + '\',' + i + ')">✏</button><button class="btn btn-sm btn-outline" onclick="deleteIdea(\'' + escapeHtml(date) + '\',' + i + ')">🗑</button></div><div class="timeline-note" style="white-space:pre-wrap">' + escapeHtml(t) + '</div></div>';
+    html += '<div class="timeline-row"><div class="timeline-head"><span class="timeline-range">💡</span><span class="timeline-kind" style="background:#fef9c3;color:#92400e">今日梳理</span><span style="flex:1"></span><button class="btn btn-sm btn-outline" style="color:#0284c7" onclick="editIdeaAt(\'' + escapeHtml(date) + '\',' + i + ')">✏</button><button class="btn btn-sm btn-outline" onclick="deleteIdea(\'' + escapeHtml(date) + '\',' + i + ')">🗑</button></div><div class="timeline-note" style="white-space:pre-wrap">' + escapeHtml(t) + '</div></div>';
   });
   return html;
 }
