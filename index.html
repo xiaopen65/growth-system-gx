@@ -198,7 +198,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="49">
+<meta name="app-version" content="50">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -4009,7 +4009,7 @@ var SYNC=(function(){
 var DEFAULT_URL="https://growth-system-d3gq64vfe73e198b0-1342558186.ap-shanghai.app.tcloudbase.com/sync";
 var state={token:APP_STORAGE.getItem("growth_sync_token")||"",username:APP_STORAGE.getItem("growth_sync_user")||"",base:Number(APP_STORAGE.getItem("growth_sync_base")||0),last:Number(APP_STORAGE.getItem("growth_sync_last")||0),digest:APP_STORAGE.getItem("growth_sync_digest")||"",applying:false,dirty:false,busy:false,timer:null,pullTimer:null,choice:null};
 function $(id){return document.getElementById(id)}
-function apiUrl(){var saved=APP_STORAGE.getItem("growth_sync_url");if(saved&&saved.indexOf(".service.tcloudbase.com/sync")>=0){APP_STORAGE.removeItem("growth_sync_url");saved=null}return saved||DEFAULT_URL}
+function apiUrl(){var saved=APP_STORAGE.getItem("growth_sync_url");var cur=(DEFAULT_URL.match(/\/\/([^.]+)\./)||[])[1]||"";if(saved&&(!cur||saved.indexOf(cur)<0)){APP_STORAGE.removeItem("growth_sync_url");saved=null}return saved||DEFAULT_URL}
 function setError(m,target){var ids=target?[target]:["syncError","syncLoginError"];for(var i=0;i<ids.length;i++){var e=$(ids[i]);if(e){e.textContent=m||"";e.style.display=m?"block":"none"}}}
 function fmt(ts){if(!ts)return "尚未同步";var d=new Date(ts);function p(n){return n<10?"0"+n:""+n}return p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())}
 function persist(){APP_STORAGE.setItem("growth_sync_token",state.token||"");APP_STORAGE.setItem("growth_sync_user",state.username||"");APP_STORAGE.setItem("growth_sync_base",String(state.base||0));APP_STORAGE.setItem("growth_sync_last",String(state.last||0));APP_STORAGE.setItem("growth_sync_digest",state.digest||"")}
@@ -4141,6 +4141,7 @@ function pull(){
   if(document.visibilityState==="hidden")return Promise.resolve({skipped:true});
   return api("version",{token:state.token}).then(function(ver){
     var remoteAt=Number((ver&&ver.updatedAt)||0);
+    if(remoteAt<state.base-60000){state.dirty=true;persist();upload(true);return {ok:true,recovered:true};}
     if(remoteAt<=state.base){
       state.last=Date.now();
       var st=$("syncStatus");if(st)st.textContent="最后同步："+fmt(state.last)+(state.dirty?" · 待同步":"");
@@ -4253,6 +4254,10 @@ function init(){
   if(!APP_STORAGE.getItem("growth_device_id"))APP_STORAGE.setItem("growth_device_id",Math.random().toString(36).slice(2)+Date.now().toString(36));
   render();
   if(state.token){
+    var __host=(apiUrl().match(/\/\/([^/]+)/)||[])[1]||"";
+    var __lastHost=APP_STORAGE.getItem("growth_sync_host")||"";
+    if(__lastHost&&__host&&__lastHost!==__host){state.base=0;state.dirty=true;persist();}
+    if(__host)APP_STORAGE.setItem("growth_sync_host",__host);
     if(state.digest&&localDigest()!==state.digest)state.dirty=true;
     markActive();
     pull().then(function(){if(state.dirty&&!state.choice)scheduleUpload(600)});
