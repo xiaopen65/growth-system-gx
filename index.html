@@ -198,7 +198,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="50">
+<meta name="app-version" content="51">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -4276,6 +4276,22 @@ function init(){
 }
 return{init:init,place:place,openLogin:openLogin,closeLogin:closeLogin,login:function(){doAuth("login")},logout:logout,now:now,markDirty:markDirty,choose:choose,setUrl:function(){var u=prompt("同步服务地址",apiUrl());if(u&&u.trim()){APP_STORAGE.setItem("growth_sync_url",u.trim());setError("")}}};
 })();
+function checkAppUpdate(){
+  try{
+    fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
+      var meta=document.querySelector('meta[name="app-version"]');
+      var cur=meta?meta.content:"";
+      var bar=document.getElementById("updateBar");
+      if(!bar||!j||!j.version)return;
+      if(Number(j.version)>Number(cur)){bar.textContent="🔄 有新版本 v"+j.version+"，点这里更新";bar.style.display="block";}
+      else{bar.style.display="none";}
+    }).catch(function(){});
+  }catch(e){}
+}
+checkAppUpdate();
+setInterval(function(){if(document.visibilityState!=="hidden")checkAppUpdate();},5*60*1000);
+document.addEventListener("visibilitychange",function(){if(!document.hidden)checkAppUpdate();});
+
 SYNC.init();
 
 </script>
@@ -4300,5 +4316,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<div id="updateBar" onclick="forceAppUpdate()" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:200;background:#f59e0b;color:#fff;padding:10px 18px;border-radius:999px;font-size:0.85em;font-weight:700;box-shadow:0 8px 20px rgba(245,158,11,.35);cursor:pointer;white-space:nowrap">🔄 有新版本，点这里更新</div>
 </body>
 </html>
