@@ -198,7 +198,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json?v=3">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="52">
+<meta name="app-version" content="53">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -828,6 +828,20 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </div>
 <div class="card" style="margin-top:12px">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<h3 style="margin:0">🎁 兑奖池</h3>
+<span style="font-size:0.85em;color:#6b7280"><strong id="rewardPoolCount">0</strong> 个待兑</span>
+</div>
+<div id="rewardPoolList"></div>
+</div>
+<div class="card" style="margin-top:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<h3 style="margin:0">📜 已兑奖记录</h3>
+<span style="font-size:0.85em;color:#6b7280"><strong id="rewardDoneCount">0</strong> 条</span>
+</div>
+<div id="rewardDoneList"></div>
+</div>
+<div class="card" style="margin-top:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
 <h3 style="margin:0">📤 导入导出转盘</h3>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1031,6 +1045,8 @@ var DEFAULT_DATA = {
     { lv: 10, need: 450, reward: "还没想好", claimed: false }
   ],
   spinHistory: [],
+  rewardPool: [],
+  rewardPoolMigrated: false,
   dailyTodos: [],
   mainMinutesTotal: 0,
   dailyMinutesTotal: 0,
@@ -1677,6 +1693,68 @@ function renderRouletteItems(){
 function editRouletteItem(idx){var items=data.roulettes[currentRouletteType].items;openTextEditModal("✏ 编辑条目",items[idx],function(nt){items[idx]=nt;saveData();renderRouletteItems();showToast("已更新")})}
 function deleteRouletteItem(idx){var items=data.roulettes[currentRouletteType].items;if(!confirm('确定删除"'+items[idx]+'"？'))return;items.splice(idx,1);saveData();renderRouletteItems();showToast("已删除")}
 function addRouletteItem(){var inp=document.getElementById("newRouletteItem");var t=(inp.value||"").trim();if(!t){showToast("请先输入内容");return}data.roulettes[currentRouletteType].items.push(t);saveData();renderRouletteItems();showToast("+ 已添加")}
+function rewardIcon(t){var m={"放松":"🧘","美食":"🍜","好奇心":"🔍","游戏":"🎮"};return m[t]||"🎰"}
+function rewardTimeText(ts){if(!ts)return "";var d=new Date(ts);function p(n){return n<10?"0"+n:""+n}return (d.getMonth()+1)+"-"+d.getDate()+" "+p(d.getHours())+":"+p(d.getMinutes())}
+function migrateSpinHistory(){
+  if(data.rewardPoolMigrated)return;
+  var h=Array.isArray(data.spinHistory)?data.spinHistory:[];
+  if(!Array.isArray(data.rewardPool))data.rewardPool=[];
+  if(h.length){
+    var now=data.rewardPool.length;
+    h.slice().reverse().forEach(function(x,i){
+      var ts=x.date?Date.parse(x.date+"T20:00:00"):0;
+      data.rewardPool.splice(now,0,{id:"lg"+Date.now().toString(36)+i,type:x.type||"",result:x.result||"",date:x.date||"",at:ts||0,cost:x.cost||0,status:"done",redeemedAt:ts||0,legacy:true});
+    });
+  }
+  data.spinHistory=[];
+  data.rewardPoolMigrated=true;
+  saveData();
+}
+function renderRewardPool(){
+  var all=Array.isArray(data.rewardPool)?data.rewardPool:[];
+  var pending=all.filter(function(x){return x.status==="pending"});
+  var done=all.filter(function(x){return x.status==="done"}).sort(function(a,b){return (b.redeemedAt||b.at||0)-(a.redeemedAt||a.at||0)});
+  var pc=document.getElementById("rewardPoolCount");if(pc)pc.textContent=String(pending.length);
+  var dc=document.getElementById("rewardDoneCount");if(dc)dc.textContent=String(done.length);
+  var box=document.getElementById("rewardPoolList");
+  if(box){
+    box.innerHTML=pending.length?pending.map(function(x){
+      return '<div style="display:flex;align-items:center;gap:10px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px">'+
+        '<span style="font-size:1.2em">'+rewardIcon(x.type)+'</span>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:0.92em;line-height:1.5;word-break:break-word">'+escapeHtml(x.result||"")+'</div>'+
+        '<div style="font-size:0.72em;color:var(--muted);margin-top:2px">'+escapeHtml(x.type||"")+' · '+escapeHtml(x.date||"")+'</div></div>'+
+        '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.75em" onclick="editReward(\''+x.id+'\')">编辑</button>'+
+        '<button class="btn btn-sm" style="padding:4px 10px;font-size:0.78em" onclick="redeemReward(\''+x.id+'\')">兑奖</button>'+
+      '</div>';
+    }).join(""):'<div style="color:var(--muted);font-size:0.85em;padding:6px">还没有待兑的奖励，去转一次吧 🎲</div>';
+  }
+  var box2=document.getElementById("rewardDoneList");
+  if(box2){
+    box2.innerHTML=done.length?done.map(function(x){
+      var t=x.legacy?(x.date||""):rewardTimeText(x.redeemedAt);
+      return '<div style="display:flex;align-items:center;gap:10px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:8px;opacity:0.85">'+
+        '<span style="font-size:1.1em">'+rewardIcon(x.type)+'</span>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:0.9em;line-height:1.5;word-break:break-word">'+escapeHtml(x.result||"")+'</div>'+
+        '<div style="font-size:0.72em;color:var(--muted);margin-top:2px">已兑 · '+escapeHtml(t)+'</div></div>'+
+        '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.72em" onclick="deleteReward(\''+x.id+'\')">删除</button>'+
+      '</div>';
+    }).join(""):'<div style="color:var(--muted);font-size:0.85em;padding:6px">还没有兑奖记录</div>';
+  }
+}
+function editReward(id){
+  var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
+  openTextEditModal("✏ 编辑奖励内容",it.result,function(v){it.result=v;saveData();renderRewardPool();showToast("已更新")});
+}
+function redeemReward(id){
+  var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
+  if(!confirm("确认兑换「"+it.result+"」？"))return;
+  it.status="done";it.redeemedAt=Date.now();saveData();playSfx("record");renderRewardPool();showToast("🎁 已兑奖");
+}
+function deleteReward(id){
+  var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
+  if(!confirm("删除这条兑奖记录？"))return;
+  data.rewardPool=data.rewardPool.filter(function(x){return x.id!==id});saveData();renderRewardPool();showToast("已删除");
+}
 function spinRoulette(){
   if(isSpinning)return;var cost=data.roulettes[currentRouletteType].cost,items=data.roulettes[currentRouletteType].items;
   var bal=data.balance||0;if(bal<cost){showToast("❌ 成长点余额不足！");return}
@@ -1690,8 +1768,8 @@ function spinRoulette(){
       document.querySelectorAll(".roulette-item").forEach(function(el){el.classList.remove("highlight")});
       var fe=document.getElementById("ritem-"+fi);if(fe)fe.classList.add("highlight");
       var result=items[fi];
-      data.balance=(data.balance||0)-cost;data.spinHistory.push({type:currentRouletteType,result:result,date:new Date().toISOString().split("T")[0],cost:cost});
-      saveData();showSpinResultModal(currentRouletteType,result,cost);document.getElementById("spinResult").textContent="🎯 点击下方按钮开始抽奖";
+      data.balance=(data.balance||0)-cost;if(!Array.isArray(data.rewardPool))data.rewardPool=[];data.rewardPool.unshift({id:"rw"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),type:currentRouletteType,result:result,date:getLocalDateString(),at:Date.now(),cost:cost||0,status:"pending",redeemedAt:0});
+      saveData();renderRewardPool();showSpinResultModal(currentRouletteType,result,cost);document.getElementById("spinResult").textContent="🎯 点击下方按钮开始抽奖";
       document.getElementById("spinBtn").disabled=false;isSpinning=false;updateStats();updateSpinRemaining();
     }
   },100);
@@ -1707,7 +1785,7 @@ function openRoulette(){
   document.getElementById("page-roulette").classList.add("active");
   var headerPanel=document.getElementById("headerPanel");
   if(headerPanel)headerPanel.style.display="none";
-  renderRouletteTabs();renderRouletteItems();updateSpinRemaining();
+  renderRouletteTabs();renderRouletteItems();updateSpinRemaining();renderRewardPool();
 }
 function closeRoulette(){playSfx("tab");switchTab("rewards")}
 function navTab(tab){playSfx("tab");switchTab(tab)}
@@ -2178,7 +2256,8 @@ function exportAllDataFile(){
       main:((data.dailyLog)||[]),
       daily:((dataDaily&&dataDaily.dailyLog)||[]),
       goodThings:(data.goodThings||{}),
-      ideas:(data.ideas||{})
+      ideas:(data.ideas||{}),
+      rewardPool:(data.rewardPool||[])
     },
     mainline:{
       mainQuests:(data.mainQuests||[]),
@@ -2231,6 +2310,7 @@ function applyFullBackup(j){
     if(Array.isArray(j.timeline.daily)){if(!dataDaily)dataDaily={dailyLog:[],futureGoals:[]};dataDaily.dailyLog=j.timeline.daily}
     if(j.timeline.goodThings&&typeof j.timeline.goodThings==="object")data.goodThings=j.timeline.goodThings;
     if(j.timeline.ideas&&typeof j.timeline.ideas==="object")data.ideas=j.timeline.ideas;
+    if(Array.isArray(j.timeline.rewardPool))data.rewardPool=j.timeline.rewardPool;
     normalizeDailyLog();recalcMainMinutesTotal();recalcDailyMinutesTotal();
   }
   if(j.mainline&&typeof j.mainline==="object"){
@@ -4001,7 +4081,7 @@ function forceAppUpdate(){
     Promise.all(jobs).then(done,done);
   }catch(e){done()}
 }
-function init(){applyTheme();syncSfxBtn();syncCampfireBtn();syncSfxVolumeUI();loadSfxSamples();loadData();loadDailyData();renderDailyTodos();renderTodayPlan();bindDragSort(document.getElementById("dailyTodoList"));var __gl=document.getElementById("dailyTodoListGoal");if(__gl)bindDragSort(__gl);bindDragSort(document.getElementById("questList"));document.getElementById("dailyDate").value=getLocalDateString();var endInput=document.getElementById("dailyEndTime");if(endInput){endInput.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimes()})}var startInput=document.getElementById("dailyStartTime");if(startInput){startInput.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimes()})}var dmEnd=document.getElementById("dailyModeEndTime");if(dmEnd){dmEnd.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimesDaily()})}var dmStart=document.getElementById("dailyModeStartTime");if(dmStart){dmStart.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimesDaily()})}renderDailyList();renderLevelGrid();updateStats();resetQuestForm();renderQuests();renderRouletteTabs();renderRouletteItems();updateDailyDraftTimes();populateFoolTimeSelect();renderFoolTimeUI();renderDailyChallenge();renderDailyModeList();renderGoals();if(document.getElementById("goalList"))bindDragSort(document.getElementById("goalList"));renderModeButtons();applyMode(true);renderDailyChallenge();if(data.dailyChallenge&&data.dailyChallenge.active&&data.dailyChallenge.date===getLocalDateString())openDailyChallengeModal();if(data.foolTime&&data.foolTime.active)openFoolTimeModal()}
+function init(){applyTheme();syncSfxBtn();syncCampfireBtn();syncSfxVolumeUI();loadSfxSamples();loadData();loadDailyData();migrateSpinHistory();renderDailyTodos();renderTodayPlan();bindDragSort(document.getElementById("dailyTodoList"));var __gl=document.getElementById("dailyTodoListGoal");if(__gl)bindDragSort(__gl);bindDragSort(document.getElementById("questList"));document.getElementById("dailyDate").value=getLocalDateString();var endInput=document.getElementById("dailyEndTime");if(endInput){endInput.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimes()})}var startInput=document.getElementById("dailyStartTime");if(startInput){startInput.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimes()})}var dmEnd=document.getElementById("dailyModeEndTime");if(dmEnd){dmEnd.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimesDaily()})}var dmStart=document.getElementById("dailyModeStartTime");if(dmStart){dmStart.addEventListener("input",function(){this.dataset.manual="1";updateDailyDraftTimesDaily()})}renderDailyList();renderLevelGrid();updateStats();resetQuestForm();renderQuests();renderRouletteTabs();renderRouletteItems();updateDailyDraftTimes();populateFoolTimeSelect();renderFoolTimeUI();renderDailyChallenge();renderDailyModeList();renderGoals();if(document.getElementById("goalList"))bindDragSort(document.getElementById("goalList"));renderModeButtons();applyMode(true);renderDailyChallenge();if(data.dailyChallenge&&data.dailyChallenge.active&&data.dailyChallenge.date===getLocalDateString())openDailyChallengeModal();if(data.foolTime&&data.foolTime.active)openFoolTimeModal()}
 init();renderAboutCards();setInterval(updateDailyDraftTimes,1000);setInterval(updateDailyDraftTimesDaily,1000);setInterval(tickDailyChallenge,250);setInterval(tickFoolTime,250);
 
 // ==== 云端账号同步 ====
