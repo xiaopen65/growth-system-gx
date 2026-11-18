@@ -94,6 +94,11 @@ textarea{resize:vertical;min-height:60px}
 .reward-done-head h3{margin:0!important}
 .reward-done-arrow{display:inline-block;transition:transform .2s;font-size:0.8em;color:var(--muted)}
 .reward-done-arrow.open{transform:rotate(90deg)}
+.reward-item{display:flex;align-items:center;gap:10px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap}
+.reward-item .reward-icon{font-size:1.2em;flex-shrink:0}
+.reward-item .reward-body{flex:1 1 180px;min-width:0}
+.reward-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}
+@media(max-width:500px){.reward-actions{flex-basis:100%;justify-content:flex-end;margin-left:0;margin-top:2px}}
 @media(max-width:500px){.roulette-mode-select{flex-basis:92px;width:92px;font-size:0.78em}.roulette-spin-row{font-size:0.9em;padding:12px 10px}}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#fef3c7;color:#f59e0b;padding:12px 24px;border-radius:8px;z-index:200;animation:fadeInOut 2s forwards}
 @keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(-10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}85%{opacity:1}100%{opacity:0}}
@@ -218,7 +223,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json?v=3">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="57">
+<meta name="app-version" content="58">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -1787,12 +1792,15 @@ function renderRewardPool(){
   var box=document.getElementById("rewardPoolList");
   if(box){
     box.innerHTML=pending.length?pending.map(function(x){
-      return '<div style="display:flex;align-items:center;gap:10px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px">'+
-        '<span style="font-size:1.2em">'+rewardIcon(x.type)+'</span>'+
-        '<div style="flex:1;min-width:0"><div style="font-size:0.92em;line-height:1.5;word-break:break-word">'+escapeHtml(x.result||"")+'</div>'+
+      return '<div class="reward-item">'+
+        '<span class="reward-icon">'+rewardIcon(x.type)+'</span>'+
+        '<div class="reward-body"><div style="font-size:0.92em;line-height:1.5;word-break:break-word">'+escapeHtml(x.result||"")+'</div>'+
         '<div style="font-size:0.72em;color:var(--muted);margin-top:2px">'+escapeHtml(x.type||"")+' · '+escapeHtml(x.date||"")+'</div></div>'+
+        '<div class="reward-actions">'+
         '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.75em" onclick="editReward(\''+x.id+'\')">编辑</button>'+
+        '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.75em" onclick="restoreReward(\''+x.id+'\')">恢复5点</button>'+
         '<button class="btn btn-sm" style="padding:4px 10px;font-size:0.78em" onclick="redeemReward(\''+x.id+'\')">兑奖</button>'+
+        '</div>'+
       '</div>';
     }).join(""):'<div style="color:var(--muted);font-size:0.85em;padding:6px">兑奖池还是空的，去转一次吧 🎲</div>';
   }
@@ -1814,6 +1822,14 @@ function renderRewardPool(){
 function editReward(id){
   var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
   openTextEditModal("✏ 编辑奖励内容",it.result,function(v){it.result=v;saveData();renderRewardPool();showToast("已更新")});
+}
+function restoreReward(id){
+  var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
+  askConfirm("恢复 5 点成长点，并把这条奖励从兑奖池退回？",function(){
+    data.balance=(data.balance||0)+5;
+    data.rewardPool=data.rewardPool.filter(function(x){return x.id!==id});
+    saveData();updateStats();updateSpinRemaining();renderRewardPool();playSfx("record");showToast("💧 已恢复 5 点成长点，奖励已退回");
+  });
 }
 function redeemReward(id){
   var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
