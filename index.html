@@ -218,7 +218,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json?v=3">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="56">
+<meta name="app-version" content="57">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -1695,7 +1695,7 @@ function deleteLevelReward(idx){var r=data.levelRewards[idx];if(!r)return;if(!co
 // Roulette
 var currentRouletteType="放松",isSpinning=false;
 var ROULETTE_RANDOM="__random__",ROULETTE_RETRY_MAX=3;
-var rouletteMode=ROULETTE_RANDOM,rewardListOpen=false,rewardDoneOpen=false;
+var rouletteMode=ROULETTE_RANDOM,rewardListOpen=false,rewardDoneOpen=false,pendingSpinResult=null;
 function rouletteKeys(){
   var keys=Object.keys(data.roulettes||{}),pref=["放松","美食","游戏","好奇心"],ordered=[];
   pref.forEach(function(k){if(keys.indexOf(k)>=0)ordered.push(k)});
@@ -1857,17 +1857,18 @@ function toggleRewardDone(){
   playSfx("tap");
 }
 function spinRoulette(free){
-  if(isSpinning)return;
+  if(isSpinning)return;pendingSpinResult=null;
   var keys=rouletteKeys();
   if(!keys.length){showToast("还没有可用的转盘");return;}
-  if(free&&spinRetryLeft()<=0){showToast("今日三次再来一次已用完");return;}
+  if(free&&spinRetryLeft()<=0){showToast("今日三次重新置换已用完");return;}
   var type=rouletteMode===ROULETTE_RANDOM?keys[Math.floor(Math.random()*keys.length)]:rouletteMode;
   if(!data.roulettes[type]){showToast("这个类目不存在");return;}
   var r=data.roulettes[type],items=(Array.isArray(r.items)?r.items:[]).filter(function(x){return String(x||"").trim()});
   if(!items.length){showToast("这个类目还没有奖励内容");return;}
   var cost=Number(r.cost)||5;
   if(!free&&(data.balance||0)<cost){showToast("❌ 成长点余额不足！");return;}
-  if(free&&!consumeSpinRetry()){showToast("今日三次再来一次已用完");return;}
+  if(free&&!consumeSpinRetry()){showToast("今日三次重新置换已用完");return;}
+  if(free)saveData();
   isSpinning=true;currentRouletteType=type;
   renderRouletteTabs();renderRouletteItems();
   var btn=document.getElementById("spinBtn"),display=document.getElementById("spinDisplay");
@@ -1885,14 +1886,12 @@ function spinRoulette(free){
   tick();
 }
 function finishSpin(type,result,cost,free){
-  if(!free)data.balance=Math.max(0,(data.balance||0)-cost);
-  if(!Array.isArray(data.rewardPool))data.rewardPool=[];
-  data.rewardPool.unshift({id:"rw"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),type:type,result:result,date:getLocalDateString(),at:Date.now(),cost:free?0:cost,status:"pending",redeemedAt:0});
-  saveData();renderRewardPool();
+  if(!free){data.balance=Math.max(0,(data.balance||0)-cost);saveData();}
   isSpinning=false;playSfx("record");updateStats();updateSpinRemaining();
   var btn=document.getElementById("spinBtn");
   if(btn){btn.disabled=false;btn.classList.remove("spinning")}
   resetSpinPrompt();
+  pendingSpinResult={type:type,result:result,cost:cost,free:free};
   showSpinResultModal(type,result,cost,free);
 }
 function updateSpinRemaining(){
@@ -2488,12 +2487,18 @@ function showSpinResultModal(type,result,cost,free){
   var overlay=document.createElement("div");overlay.className="spin-overlay";overlay.id="spinOverlay";
   var typeIcons={"放松":"🧘","美食":"🍜","好奇心":"🔍","游戏":"🎮"};
   var icon=typeIcons[type]||"🎰",left=spinRetryLeft();
-  var retryHtml=left>0?'<div class="spin-retry-q">是否重新抽一次？</div><div class="spin-btns"><button class="btn" style="font-size:0.92em;padding:10px 16px" onclick="retrySpinFromModal()">🔄 重新抽一次（不消耗点数）· 剩 '+left+' 次</button></div>':'<div class="spin-retry-note">今日免费重抽已用完</div>';
-  overlay.innerHTML='<div class="spin-modal"><span class="spin-icon">'+icon+'</span><h2>已放入兑奖池</h2><div class="spin-category">'+escapeHtml(rouletteDisplayName(type))+'</div><div class="spin-prize"><div class="spin-prize-text">'+escapeHtml(result)+'</div></div>'+retryHtml+'<div class="spin-btns" style="margin-top:12px"><button class="btn btn-outline" style="font-size:0.9em" onclick="closeSpinModal()">收下，关闭</button></div></div>';
+  var retryHtml=left>0?'<div class="spin-retry-q">是否重新置换这次结果？</div><div class="spin-btns"><button class="btn" style="font-size:0.92em;padding:10px 16px" onclick="retrySpinFromModal()">🔄 重新抽一次（不消耗点数）· 剩 '+left+' 次</button></div>':'<div class="spin-retry-note">今日重新置换次数已用完</div>';
+  overlay.innerHTML='<div class="spin-modal"><span class="spin-icon">'+icon+'</span><h2>本次抽到</h2><div class="spin-category">'+escapeHtml(rouletteDisplayName(type))+'</div><div class="spin-prize"><div class="spin-prize-text">'+escapeHtml(result)+'</div></div><div class="spin-cost-info">本次抽奖消耗 '+cost+' 成长点 · 余额剩余 '+Math.max(0,data.balance||0)+' 点<br>收下后才会放入兑奖池</div>'+retryHtml+'<div class="spin-btns" style="margin-top:12px"><button class="btn" style="font-size:0.9em" onclick="acceptSpinResult()">✅ 收下并放入兑奖池</button></div></div>';
   document.body.appendChild(overlay);
-  overlay.addEventListener("click",function(e){if(e.target===overlay)closeSpinModal()});
 }
-function retrySpinFromModal(){closeSpinModal();spinRoulette(true);}
+function retrySpinFromModal(){pendingSpinResult=null;closeSpinModal();spinRoulette(true);}
+function acceptSpinResult(){
+  if(!pendingSpinResult)return;
+  var p=pendingSpinResult;pendingSpinResult=null;
+  if(!Array.isArray(data.rewardPool))data.rewardPool=[];
+  data.rewardPool.unshift({id:"rw"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),type:p.type,result:p.result,date:getLocalDateString(),at:Date.now(),cost:p.cost||0,status:"pending",redeemedAt:0});
+  saveData();closeSpinModal();renderRewardPool();playSfx("save");showToast("🎁 已放入兑奖池");
+}
 function closeSpinModal(){var el=document.getElementById("spinOverlay");if(el)el.remove()}
 
 function showLevelUpModal(lv){
