@@ -223,7 +223,7 @@ body[data-theme="dark"] [style*="border:1px solid #e5e7eb"]{border-color:var(--b
 </style>
   <link rel="manifest" href="manifest.json?v=3">
   <meta name="theme-color" content="#f5f6f8">
-<meta name="app-version" content="58">
+<meta name="app-version" content="59">
 </head>
 <body>
 <div id="importPopupOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:246;align-items:center;justify-content:center;padding:16px">
@@ -1675,7 +1675,7 @@ function renderLevelGrid(){
     var isLast=idx===data.levelRewards.length-1;
     var delBtn=isLast?'<button class="level-del" title="删除该等级奖励" onclick="deleteLevelReward('+idx+')">&#xd7;</button>':'';
     if(reached){cb=r.claimed?'<button class="btn btn-sm lv-btn" style="background:#4fc3f7;color:#ffffff" onclick="claimReward('+r.lv+')">✅ 已领取</button>':'<button class="btn btn-sm lv-btn" onclick="claimReward('+r.lv+')">🎁 领取</button>'}
-    return'<div class="level-item '+(reached?'reached':'')+'">'+delBtn+'<div class="lv-name">Lv.'+r.lv+' '+(r.lv===cl?'👈 当前':'')+'</div><div style="font-size:0.7em;color:#6b7280">需累计 '+r.need+' 点</div><div class="lv-reward">'+r.reward+' <button class="btn btn-sm btn-outline" style="padding:2px 6px;font-size:0.7em" onclick="editReward('+r.lv+')">✏</button></div>'+cb+'</div>';
+    return'<div class="level-item '+(reached?'reached':'')+'">'+delBtn+'<div class="lv-name">Lv.'+r.lv+' '+(r.lv===cl?'👈 当前':'')+'</div><div style="font-size:0.7em;color:#6b7280">需累计 '+r.need+' 点</div><div class="lv-reward">'+r.reward+' <button class="btn btn-sm btn-outline" style="padding:2px 6px;font-size:0.7em" onclick="editLevelReward('+r.lv+')">✏</button></div>'+cb+'</div>';
   }).join("")+'<button class="btn btn-sm btn-outline" style="margin-top:8px;width:100%" onclick="addLevelReward()">+ 新增等级奖励</button>';
   var nl=cl,pt=calcLevelPoints(nl-1),nt=calcLevelPoints(nl),pg=Math.min(100,Math.max(0,((t-pt)/(nt-pt))*100));
   document.getElementById("levelBar").style.width=pg+"%";
@@ -1687,7 +1687,7 @@ function claimReward(lv){
   var r=data.levelRewards.find(function(x){return x.lv===lv});
   if(r){r.claimed=!r.claimed;saveData();renderLevelGrid();showToast(r.claimed?"🎉 已领取 Lv."+lv+" 奖励":"↩ 已撤销 Lv."+lv+" 领取")}
 }
-function editReward(lv){
+function editLevelReward(lv){
   var r=data.levelRewards.find(function(x){return x.lv===lv});if(!r)return;
   openTextEditModal("✏ 编辑 Lv."+lv+" 奖励内容",r.reward,function(nt){r.reward=nt;saveData();renderLevelGrid();showToast("奖励已更新")});
 }
@@ -1797,7 +1797,7 @@ function renderRewardPool(){
         '<div class="reward-body"><div style="font-size:0.92em;line-height:1.5;word-break:break-word">'+escapeHtml(x.result||"")+'</div>'+
         '<div style="font-size:0.72em;color:var(--muted);margin-top:2px">'+escapeHtml(x.type||"")+' · '+escapeHtml(x.date||"")+'</div></div>'+
         '<div class="reward-actions">'+
-        '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.75em" onclick="editReward(\''+x.id+'\')">编辑</button>'+
+        '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.75em" onclick="editRewardPoolItem(\''+x.id+'\')">编辑</button>'+
         '<button class="btn btn-sm btn-outline" style="padding:4px 8px;font-size:0.75em" onclick="restoreReward(\''+x.id+'\')">恢复5点</button>'+
         '<button class="btn btn-sm" style="padding:4px 10px;font-size:0.78em" onclick="redeemReward(\''+x.id+'\')">兑奖</button>'+
         '</div>'+
@@ -1819,7 +1819,7 @@ function renderRewardPool(){
   if(box2)box2.style.display=rewardDoneOpen?"block":"none";
   var arrow=document.getElementById("rewardDoneArrow");if(arrow)arrow.classList.toggle("open",rewardDoneOpen);
 }
-function editReward(id){
+function editRewardPoolItem(id){
   var it=(data.rewardPool||[]).find(function(x){return x.id===id});if(!it)return;
   openTextEditModal("✏ 编辑奖励内容",it.result,function(v){it.result=v;saveData();renderRewardPool();showToast("已更新")});
 }
